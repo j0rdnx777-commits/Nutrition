@@ -52,14 +52,25 @@
     -webkit-touch-callout: default;
   }
 
-  body{margin:0;padding:0;background:transparent; overscroll-behavior-y:none; overflow:hidden; height:100%;}
+  html{
+    height:100%;
+    height:-webkit-fill-available;
+  }
   body{
+    margin:0; padding:0;
+    background:transparent;
+    overscroll-behavior-y:none;
+    overflow:hidden;
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    height:-webkit-fill-available;
     font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     color:var(--text);
     -webkit-font-smoothing:antialiased;
-    overflow-x:hidden;
   }
-  body.sheet-open{overflow:hidden; position:fixed; width:100%; left:0; right:0;}
+  body.sheet-open{overflow:hidden;}
 
   /* ===== Glassmorphism background (very light, dark UI text) ===== */
   .bg{
@@ -88,12 +99,12 @@
   #app{
     max-width:430px;
     margin:0 auto;
-    height:100vh;
-    height:100dvh;
+    position:absolute;
+    top:0; left:0; right:0; bottom:0;
+    height:auto;
     background:transparent;
-    position:relative;
     z-index:1;
-    overflow:hidden; /* page itself does not rubber-band */
+    overflow:hidden;
     box-shadow:0 0 40px rgba(0,0,0,0.12);
     display:flex;
     flex-direction:column;
@@ -210,7 +221,7 @@
     min-height:0;
     overflow-y:auto;
     overflow-x:hidden;
-    padding:calc(var(--safe-top) + 72px) 16px calc(120px + var(--safe-bottom));
+    padding:calc(var(--safe-top) + 72px) 16px calc(96px + var(--safe-bottom));
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: auto;
   }
@@ -238,23 +249,25 @@
   .tabbar{
     position:fixed;
     left:16px; right:16px;
-    bottom:calc(16px + var(--safe-bottom));
+    /* sit above the iPhone home-indicator */
+    bottom:calc(10px + var(--safe-bottom));
     z-index:40;
     max-width:398px; margin:0 auto;
     height:66px;
     display:flex;
     align-items:center;
-    background:rgba(255,255,255,0.42);
-    backdrop-filter:blur(24px) saturate(180%);
-    -webkit-backdrop-filter:blur(24px) saturate(180%);
-    border:0.5px solid rgba(255,255,255,0.55);
+    /* opaque enough that charts don't bleed through (was 0.42 → messy on Safari PWA) */
+    background:rgba(255,255,255,0.88);
+    backdrop-filter:blur(28px) saturate(180%);
+    -webkit-backdrop-filter:blur(28px) saturate(180%);
+    border:0.5px solid rgba(255,255,255,0.7);
     border-radius:33px;
     padding:0 6px;
     box-sizing:border-box;
     box-shadow:
       0 8px 28px rgba(20,20,24,0.10),
       0 2px 8px rgba(20,20,24,0.04),
-      inset 0 0.5px 0 rgba(255,255,255,0.65);
+      inset 0 0.5px 0 rgba(255,255,255,0.75);
   }
   .tab-item{
     flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
