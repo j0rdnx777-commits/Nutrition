@@ -55,10 +55,13 @@
   html{
     height:100%;
     height:-webkit-fill-available;
+    min-height:100%;
+    min-height:100dvh;
+    min-height:-webkit-fill-available;
   }
   body{
     margin:0; padding:0;
-    background:transparent;
+    background:var(--bg); /* was transparent — left white gap under short viewport */
     overscroll-behavior-y:none;
     overflow:hidden;
     position:fixed;
@@ -66,6 +69,9 @@
     width:100%;
     height:100%;
     height:-webkit-fill-available;
+    min-height:100%;
+    min-height:100dvh;
+    min-height:-webkit-fill-available;
     font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
     color:var(--text);
     -webkit-font-smoothing:antialiased;
@@ -101,7 +107,11 @@
     margin:0 auto;
     position:absolute;
     top:0; left:0; right:0; bottom:0;
-    height:auto;
+    width:100%;
+    height:100%;
+    min-height:100%;
+    min-height:100dvh;
+    min-height:-webkit-fill-available;
     background:transparent;
     z-index:1;
     overflow:hidden;
@@ -542,24 +552,15 @@
     background:rgba(0,0,0,0.28);
     backdrop-filter:blur(20px) saturate(160%);
     -webkit-backdrop-filter:blur(20px) saturate(160%);
-    display:flex; align-items:flex-end; max-width:430px; margin:0 auto;
+    display:none; align-items:flex-end; max-width:430px; margin:0 auto;
     touch-action:none;
-    opacity:0;
-    visibility:hidden;
-    pointer-events:none;
-    transition: opacity 0.28s ease, visibility 0s linear 0.28s;
   }
-  .overlay.open{
-    opacity:1;
-    visibility:visible;
-    pointer-events:auto;
-    transition: opacity 0.28s ease, visibility 0s linear 0s;
-  }
+  .overlay.open{display:flex;}
   .sheet{
     background:var(--bg); width:100%; max-width:100%; max-height:90vh;
     border-radius:24px 24px 0 0; padding:0;
     display:flex; flex-direction:column;
-    transform:translateY(100%);
+    transform:translateY(0);
     transition:transform .28s cubic-bezier(.22,.9,.3,1);
     will-change:transform;
     touch-action:pan-y;
@@ -1132,6 +1133,9 @@
 
   html, body{
     height:100%;
+    min-height:100%;
+    min-height:100dvh;
+    min-height:-webkit-fill-available;
     overscroll-behavior-y: none; /* no page-level rubber-band — only .content */
   }
   html.popup-open, body.popup-open{
@@ -2204,10 +2208,54 @@ function setTab(tab){
   requestAnimationFrame(()=>{
     bindSegmentedClicks();
     refreshAllSegmented(true);
-    ensureMealsClipBound();
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
+  requestAnimationFrame(()=>updateMealsCardClip());
     requestAnimationFrame(()=>{
-      updateMealsCardClip();
       refreshAllSegmented(true);
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
+  requestAnimationFrame(()=>updateMealsCardClip());
+      // one more frame for flex layout settle
+      requestAnimationFrame(()=> refreshAllSegmented(true));
     });
   });
 }
@@ -2226,26 +2274,40 @@ function openSheet(html){
   const overlay = document.getElementById('overlay');
   const sheet = document.getElementById('sheet');
   sheet.classList.remove('dragging');
-  // start off-screen
-  sheet.style.transition = 'none';
   sheet.style.transform = 'translateY(100%)';
   overlay.classList.add('open');
   document.body.classList.add('sheet-open');
-  lockBodyScroll();
-  // next frames: enable transition and slide up + fade already handled by .open
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      sheet.style.transition = 'transform .28s cubic-bezier(.22,.9,.3,1)';
-      sheet.style.transform = 'translateY(0)';
-      content.scrollTop = 0;
-    });
-  });
+  requestAnimationFrame(()=>{ requestAnimationFrame(()=>{
+    sheet.style.transform = 'translateY(0)';
+    content.scrollTop = 0;
+  }); });
+  // Position segmented indicators ONLY after sheet is fully open — always instant (no spring on open)
   setTimeout(()=>{
     bindSegmentedClicks();
     refreshAllSegmented(true);
-    if(typeof ensureMealsClipBound === 'function') ensureMealsClipBound();
-    requestAnimationFrame(()=>updateMealsCardClip());
-  }, 300);
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
+  requestAnimationFrame(()=>updateMealsCardClip());
+  }, 420);
 }
 /** Update sheet HTML without re-animating (avoids flash on type/qty changes) */
 function refreshSheet(html){
@@ -2253,11 +2315,32 @@ function refreshSheet(html){
   const scroll = content.scrollTop;
   content.innerHTML = html;
   content.scrollTop = scroll;
+  // re-bind + place indicators without animation
   requestAnimationFrame(()=>{
     bindSegmentedClicks();
     refreshAllSegmented(true);
-    if(typeof ensureMealsClipBound === 'function') ensureMealsClipBound();
-    requestAnimationFrame(()=>updateMealsCardClip());
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
+  requestAnimationFrame(()=>updateMealsCardClip());
   });
 }
 let _closeSheetTimer = null;
@@ -2265,22 +2348,17 @@ function closeSheet(thenFn){
   const sheet = document.getElementById('sheet');
   const overlay = document.getElementById('overlay');
   const body = document.getElementById('sheetContent');
-  if(body) body.style.overflowY = 'auto';
-  if(sheet){
-    sheet.classList.remove('dragging');
-    sheet.style.transition = 'transform .28s cubic-bezier(.22,.9,.3,1)';
-    sheet.style.transform = 'translateY(100%)';
-  }
-  // fade overlay in parallel with sheet slide
-  if(overlay) overlay.classList.remove('open');
-  document.body.classList.remove('sheet-open');
+  body.style.overflowY = 'auto';
+  sheet.classList.remove('dragging');
+  sheet.style.transform = 'translateY(100%)';
   if(_closeSheetTimer) clearTimeout(_closeSheetTimer);
   _closeSheetTimer = setTimeout(()=>{
     _closeSheetTimer = null;
-    if(sheet) sheet.style.transform = '';
-    unlockBodyScroll();
+    overlay.classList.remove('open');
+    document.body.classList.remove('sheet-open');
+    sheet.style.transform = '';
     if(typeof thenFn === 'function') thenFn();
-  }, 300);
+  }, 280);
 }
 function initSheetDrag(){
   const handle = document.getElementById('sheetHandleArea');
@@ -2511,28 +2589,6 @@ function shiftDay(n){
 function currentDayLog(){
   if(!state.dayLogs[ui.currentDate]) state.dayLogs[ui.currentDate] = { slots: [] };
   return state.dayLogs[ui.currentDate];
-}
-
-function ensureMealsClipBound(){
-  if(window._mealsClipBound) return;
-  window._mealsClipBound = true;
-  let roPending = false;
-  const schedule = ()=>{
-    if(roPending) return;
-    roPending = true;
-    requestAnimationFrame(()=>{
-      roPending = false;
-      const card = document.querySelector('.meals-card');
-      if(card) card._clipKey = null;
-      updateMealsCardClip();
-    });
-  };
-  window.addEventListener('resize', schedule, {passive:true});
-  if(typeof ResizeObserver !== 'undefined'){
-    window._mealsClipRO = new ResizeObserver(schedule);
-    const block = document.querySelector('.meals-block');
-    if(block) window._mealsClipRO.observe(block);
-  }
 }
 
 function updateMealsCardClip(){
@@ -4984,11 +5040,32 @@ function closeMealPicker(){
   setTimeout(()=>{
     el.classList.remove('closing');
     unlockBodyScroll();
+    // stabilize bottom chrome after unlock
     requestAnimationFrame(()=>{
       window.scrollTo(0, _scrollLockY);
       refreshAllSegmented(true);
-      ensureMealsClipBound();
-      requestAnimationFrame(()=>updateMealsCardClip());
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
+  requestAnimationFrame(()=>updateMealsCardClip());
     });
   }, 420);
 }
@@ -5275,7 +5352,27 @@ async function init(){
     if(rc) window._perimRO.observe(rc);
   }
   refreshAllSegmented(true);
-  ensureMealsClipBound();
+  if(!window._mealsClipBound){
+    window._mealsClipBound = true;
+    let roPending = false;
+    const schedule = ()=>{
+      if(roPending) return;
+      roPending = true;
+      requestAnimationFrame(()=>{
+        roPending = false;
+        const card = document.querySelector('.meals-card');
+        if(card) card._clipKey = null; // force recompute on real resize
+        updateMealsCardClip();
+      });
+    };
+    window.addEventListener('resize', schedule, {passive:true});
+    // observe the block parent (not the clipped card) to avoid feedback
+    if(typeof ResizeObserver !== 'undefined'){
+      window._mealsClipRO = new ResizeObserver(schedule);
+      const block = document.querySelector('.meals-block');
+      if(block) window._mealsClipRO.observe(block);
+    }
+  }
   requestAnimationFrame(()=>updateMealsCardClip());
   const _pressObs = new MutationObserver(()=>{ bindPressStates(); bindToggleAnim(); bindSegmentedClicks(); });
   _pressObs.observe(document.getElementById('app')||document.body, {childList:true, subtree:true});
